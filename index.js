@@ -1,17 +1,36 @@
 const express = require("express");
-const { createCanvas, loadImage } = require("canvas");
+const { createCanvas } = require("canvas");
+// todo: registerFont so that it works on the server
 const multer = require("multer");
 
-const formatTitle = require("./utils/format-text");
+const processUploadedImage = require("./utils/process-uploaded-image");
+const calculateFontSizeAndLines = require("./utils/multiline");
+const cropAndDrawBackgroundImage = require("./utils/crop-background");
+const renderText = require("./utils/render-text");
 
 const upload = multer({
   fileFilter(req, file, cb) {
     if (!file.originalname.match(/\.(png|jpeg|jpg)$/)) {
-      return cb(new Error("Please upload an PNG or JPG image"));
+      return cb(new Error("Please upload a PNG or JPG image"));
     }
     cb(undefined, true);
   },
 });
+
+// Constants
+// We scale all measurements so the image is of a higher quality
+const SCALE = 3;
+const CANVAS_WIDTH = 1200 * SCALE;
+const CANVAS_HEIGHT = 630 * SCALE;
+const TEXT_BOUNDING_BOX_X = 224 * SCALE;
+const TEXT_BOUNDING_BOX_Y = 120 * SCALE;
+const TEXT_BOUNDING_BOX_WIDTH = 752 * SCALE;
+const TEXT_BOUNDING_BOX_HEIGHT = 396 * SCALE;
+const LINE_HEIGHT = 1.1;
+const MIN_FONT_SIZE = 30 * SCALE;
+const MAX_FONT_SIZE = 80 * SCALE;
+// Custom fonts need quotation marks around them
+const FONT = `"Onest"`;
 
 const app = express();
 const port = 3000;
@@ -20,57 +39,41 @@ app.post(
   "/image",
   upload.single("bgImage"),
   async (req, res) => {
-    if (!req.file) return res.status(400).send("No file uploaded");
-    // Processes image from post request body
-    const data = req.file.buffer.toString("base64");
-    const imgSrc = `data:${req.file.mimetype};base64,${data}`;
-    const bgImage = await loadImage(imgSrc);
+    const bgImage = await processUploadedImage(req.file);
 
     // Gets info from body
     const title = req.body.title || "Title";
     const color = req.query.color || "#1E5E25";
 
-    const canvasWidth = 1200 * 3;
-    const canvasHeight = 630 * 3;
     // Creates new canvas instance
-    const canvas = createCanvas(canvasWidth, canvasHeight);
+    const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
     const context = canvas.getContext("2d");
 
-    // Crops image to be in the centre and fill the canvas
-    const hRatio = canvas.width / bgImage.width;
-    const vRatio = canvas.height / bgImage.height;
-    const ratio = Math.max(hRatio, vRatio);
-    const centerShift_x = (canvas.width - bgImage.width * ratio) / 2;
-    const centerShift_y = (canvas.height - bgImage.height * ratio) / 2;
+    cropAndDrawBackgroundImage(context, bgImage);
 
-    // Draws image on canvas
-    context.drawImage(
-      bgImage,
-      0, // x coordinate to start clipping
-      0, // y coordinate to start clipping
-      bgImage.width, // width of clipped image
-      bgImage.height, // height of clipped image
-      centerShift_x, // x coordinate where to place image on canvas
-      centerShift_y, // y coordinate where to place image on canvas
-      bgImage.width * ratio, // width of the image to use
-      bgImage.height * ratio // height of the image to use
+    // This is the rectangle that the text should be held within and not exceed
+    const textBoundingBox = {
+      x: TEXT_BOUNDING_BOX_X, // starting point X
+      y: TEXT_BOUNDING_BOX_Y, // starting point Y
+      width: TEXT_BOUNDING_BOX_WIDTH, // width of total rectangle
+      height: TEXT_BOUNDING_BOX_HEIGHT, // height of total rectangle
+    };
+
+    const options = {
+      lineHeight: LINE_HEIGHT,
+      minFontSize: MIN_FONT_SIZE,
+      maxFontSize: MAX_FONT_SIZE,
+      font: FONT,
+      textBoundingBox,
+    };
+
+    const { fontSize, lines } = calculateFontSizeAndLines(
+      context,
+      title,
+      options
     );
 
-    // Apply any desired styling to the text
-    const fontSize = 120;
-    context.font = `bold ${fontSize}px Impact`;
-    context.fillStyle = color;
-    context.textAlign = "center";
-    const lineHeight = fontSize + 20;
-
-    const formattedText = formatTitle(title);
-
-    // At the moment just playing with 2 lines (still not centered)
-    let titleX = canvas.width / 2;
-    let titleY = canvas.height / 2 - (lineHeight * formattedText.length) / 2;
-    context.fillText(formattedText[0], titleX, titleY);
-    titleY += lineHeight;
-    context.fillText(formattedText[1], titleX, titleY);
+    renderText(context, lines, fontSize, LINE_HEIGHT, color);
 
     // Sends image back in response
     const buffer = canvas.toBuffer("image/jpeg");
