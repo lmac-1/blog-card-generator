@@ -1,10 +1,12 @@
-# How to use this application
+# Welcome 
+
+## Getting started
 
 Run `npm install` to install dependencies
 
 Run `npm run dev` to start the server
 
-# Testing the API
+## How to test the API
 
 You'll need to use Postman or something similar to simulate a POST request to the endpoint http://localhost:3000/image with the following fields in the body of the request:
 
@@ -14,7 +16,7 @@ You'll need to use Postman or something similar to simulate a POST request to th
 | `title`   | Title that will be displayed on the blog card |
 | `color`   | Hex code of the colour of the text            |
 
-# Notes
+## Notes
 
 I am still trying to work out how to wrap the text.
 
