@@ -22,8 +22,6 @@ const upload = multer({
 const SCALE = 3;
 const CANVAS_WIDTH = 1200 * SCALE;
 const CANVAS_HEIGHT = 630 * SCALE;
-const TEXT_BOUNDING_BOX_X = 224 * SCALE;
-const TEXT_BOUNDING_BOX_Y = 120 * SCALE;
 const TEXT_BOUNDING_BOX_WIDTH = 752 * SCALE;
 const TEXT_BOUNDING_BOX_HEIGHT = 396 * SCALE;
 const LINE_HEIGHT = 1.1;
@@ -51,10 +49,14 @@ app.post(
 
     cropAndDrawBackgroundImage(context, bgImage);
 
+    // Calculates x and y starting coordinates of bounding box
+    const textBoundingBox_x = (canvas.width - TEXT_BOUNDING_BOX_WIDTH) / 2;
+    const textBoundingBox_y = (canvas.height - TEXT_BOUNDING_BOX_HEIGHT) / 2;
+
     // This is the rectangle that the text should be held within and not exceed
     const textBoundingBox = {
-      x: TEXT_BOUNDING_BOX_X, // starting point X
-      y: TEXT_BOUNDING_BOX_Y, // starting point Y
+      x: textBoundingBox_x, // starting point X
+      y: textBoundingBox_y, // starting point Y
       width: TEXT_BOUNDING_BOX_WIDTH, // width of total rectangle
       height: TEXT_BOUNDING_BOX_HEIGHT, // height of total rectangle
     };
